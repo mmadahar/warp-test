@@ -16,6 +16,7 @@ This project provides tools for:
 ### Source Files (`src/`)
 
 - `excel.py`: Core module for reading Excel files and converting them to Delta tables
+- `excel_safe.py`: Enhanced version of excel.py that handles unexpected kernel crashes and OOM errors
 - `utils.py`: Utility functions for directory creation and CSV operations
 - `get_files.py`: Functions for retrieving and managing file lists
 - `get_folders.py`: Functions for retrieving and managing folder lists
@@ -198,6 +199,37 @@ The project supports multiple Excel engines:
 - deltalake: Delta table operations
 - polars: Fast DataFrame operations and Delta table querying
 - Faker: Generation of realistic random data
+
+## Error Handling
+
+### excel_safe.py
+
+The `excel_safe.py` module was specifically created to handle unexpected kernel crashes and Out of Memory (OOM) errors that can occur when processing large Excel files. It includes:
+
+- Robust error handling for kernel crashes during Excel file processing
+- Memory management techniques to prevent OOM errors when dealing with large files
+- Graceful fallback mechanisms that allow processing to continue even after errors
+- Detailed logging to help diagnose issues with problematic files
+- Automatic retries with different Excel engines when a particular engine fails
+
+Example usage:
+
+```python
+from src.excel_safe import read_and_process_excel_safely
+
+# Process an Excel file with safety mechanisms enabled
+success, dataframes = read_and_process_excel_safely(
+    "path/to/large_excel_file.xlsx", 
+    "./data/excel",
+    max_memory_mb=1024,  # Set memory limit
+    retry_count=3        # Number of retry attempts
+)
+```
+
+```bash
+# Command line usage with safety mechanisms
+PYTHONPATH=. uv run src/excel_safe.py path/to/large_excel_file.xlsx
+```
 
 ## License
 
