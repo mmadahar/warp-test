@@ -1,20 +1,22 @@
-# Warp Test
+# Excel to Delta Table Converter
 
-A Python utility project for generating and managing Excel workbooks with random data, as well as file system operations.
+A Python utility project for reading Excel files and converting them to Delta tables with a unified schema. The project supports multiple worksheets and maintains data lineage through metadata columns.
 
 ## Project Overview
 
 This project provides tools for:
-- Generating large numbers of Excel workbooks with random data
-- File system operations (listing files and folders)
-- Verification of Excel workbook contents
-- CSV data management utilities
+- Reading Excel files and converting them to Delta tables with a unified schema
+- Handling multiple worksheets from a single file
+- Maintaining data lineage by including metadata (file path, name, extension, worksheet name, row number)
+- Supporting various Excel engines (openpyxl, xlrd, odf, pyxlsb, calamine)
+- Generating test Excel workbooks with random data for testing purposes
 
 ## Structure
 
 ### Source Files (`src/`)
 
-- `utils.py`: Core utility functions for directory creation and CSV operations
+- `excel.py`: Core module for reading Excel files and converting them to Delta tables
+- `utils.py`: Utility functions for directory creation and CSV operations
 - `get_files.py`: Functions for retrieving and managing file lists
 - `get_folders.py`: Functions for retrieving and managing folder lists
 
@@ -22,6 +24,8 @@ This project provides tools for:
 
 - `excel_generator.py`: Main script for generating Excel workbooks with random data
 - `verify_workbook.py`: Tool for verifying the structure and content of generated Excel workbooks
+- `get_schema.py`: Tool for displaying the schema of the generated Delta tables
+- `sample_data.py`: Utility for sampling data from the Delta tables
 
 ## Installation
 
@@ -31,24 +35,86 @@ This project provides tools for:
 
 ```bash
 # Using uv (recommended)
-uv add openpyxl pandas faker
+uv add openpyxl pandas faker deltalake polars
 
 # Or using pip
-pip install openpyxl pandas faker
+pip install openpyxl pandas faker deltalake polars
 ```
 
 ## Usage
 
-### Generating Excel Workbooks
+### Converting Excel Files to Delta Tables
 
-The `excel_generator.py` script generates Excel workbooks with random data. Each workbook contains 10 worksheets with random content.
+The main functionality allows you to read Excel files and convert their content to Delta tables with a unified schema:
+
+```bash
+# Basic usage
+PYTHONPATH=. uv run src/excel.py path/to/excel_file.xlsx
+
+# Specify a custom Excel engine
+PYTHONPATH=. uv run src/excel.py path/to/excel_file.xlsx openpyxl
+
+# Specify a custom Delta table path
+PYTHONPATH=. uv run src/excel.py path/to/excel_file.xlsx openpyxl ./data/custom_delta
+```
+
+You can also use the functionality programmatically:
+
+```python
+from src.excel import read_and_process_excel
+
+# Read an Excel file and write to Delta table
+success, dataframes = read_and_process_excel(
+    "path/to/excel_file.xlsx", 
+    "./data/excel", 
+    engine="openpyxl"
+)
+
+# Check if the operation was successful
+if success:
+    print("Conversion completed successfully!")
+```
+
+### Examining Delta Tables
+
+You can examine the schema and sample data from the Delta tables:
+
+```bash
+# Display the schema of the Delta table
+PYTHONPATH=. uv run test/get_schema.py
+
+# Sample data from the Delta table
+PYTHONPATH=. uv run test/sample_data.py
+```
+
+### Generating Test Excel Workbooks
+
+The `excel_generator.py` script generates Excel workbooks with random data for testing. Each workbook contains 10 worksheets with random content.
 
 ```bash
 # Basic usage (generates 1000 workbooks in the specified directory)
-PYTHONPATH=. uv run test/excel_generator.py --write_folder=./output_dir
+PYTHONPATH=. uv run test/excel_generator.py --write_folder=./test/excel
 
 # Specify a custom number of workbooks
-PYTHONPATH=. uv run test/excel_generator.py --write_folder=./output_dir --num_workbooks=50
+PYTHONPATH=. uv run test/excel_generator.py --write_folder=./test/excel --num_workbooks=50
+```
+
+### Complete End-to-End Example
+
+Here's a complete example showing how to generate test data and convert it to Delta format:
+
+```bash
+# 1. Generate test Excel files
+PYTHONPATH=. uv run test/excel_generator.py --write_folder=./test/excel --num_workbooks=10
+
+# 2. Convert one of the Excel files to Delta format
+PYTHONPATH=. uv run src/excel.py ./test/excel/workbook_0001.xlsx
+
+# 3. Examine the schema of the resulting Delta table
+PYTHONPATH=. uv run test/get_schema.py
+
+# 4. Sample data from the Delta table
+PYTHONPATH=. uv run test/sample_data.py
 ```
 
 ### Verifying Excel Workbooks
@@ -81,9 +147,22 @@ items = ["file1.txt", "file2.txt", "file3.txt"]
 csv_path = save_to_csv(items, "files.csv", "filename")
 ```
 
+## Delta Table Schema
+
+When Excel files are converted to Delta tables, the following schema is applied:
+
+- `path`: Absolute path to the source Excel file
+- `name`: Name of the source Excel file (without extension)
+- `ext`: Extension of the source Excel file
+- `worksheet`: Name of the worksheet in the Excel file
+- `row`: Row number in the original Excel file
+- Additional columns: All data from the original Excel file with auto-generated column names
+
+The Delta tables are partitioned by `worksheet` to optimize querying by worksheet name.
+
 ## Excel Workbook Structure
 
-Each generated workbook:
+Each generated test workbook:
 - Contains exactly 10 worksheets
 - Has random worksheet names
 - Contains random data in various formats:
@@ -93,11 +172,31 @@ Each generated workbook:
   - Sentences and phrases
 - Varies in structure (rows and columns) across worksheets
 
+## Technical Details
+
+### Delta Table Configuration
+
+The Delta tables are written with the following configuration:
+- Mode: `append` - Data is appended to existing tables
+- Partition by: `worksheet` - Data is partitioned by worksheet name
+- Schema mode: `merge` - Schema is merged with existing schema if table already exists
+
+### Excel Engines Support
+
+The project supports multiple Excel engines:
+- `openpyxl` (default) for .xlsx files
+- `xlrd` for .xls files 
+- `odf` for .ods files
+- `pyxlsb` for .xlsb files
+- `calamine` for fast reading of Excel files
+
 ## Dependencies
 
 - Python 3.11+
 - openpyxl: Excel file manipulation
 - pandas: Data handling and CSV operations
+- deltalake: Delta table operations
+- polars: Fast DataFrame operations and Delta table querying
 - Faker: Generation of realistic random data
 
 ## License
